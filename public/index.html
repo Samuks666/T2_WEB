@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador de Placa de Petri</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body>
+  <div id="app">
+    <h2>Simulador (Modo Texto)</h2>
+
+    <div style="margin-bottom: 20px;">
+      <label>Tamanho: <input type="number" v-model.number="tamanhoAtual" @change="reiniciarGrade" min="5"
+          max="50"></label>
+      <button @click="iniciar" :disabled="rodando">Iniciar</button>
+      <button @click="pausar" :disabled="!rodando">Pausar</button>
+      <button @click="avancarPasso" :disabled="rodando">Passo a Passo</button>
+      <button @click="reiniciarGrade">Reiniciar</button>
+    </div>
+
+    <p>Geração: <strong>{{ geracao }}</strong> | Células Vivas: <strong>{{ totalVivas }}</strong></p>
+    <div :style="{ display: 'grid', gridTemplateColumns: `repeat(${tamanhoAtual}, 30px)`, gap: '2px' }">
+      <template v-for="(linha, i) in matrizAtual" :key="'linha-'+i">
+        <div v-for="(celula, j) in linha" :key="'cel-'+i+'-'+j" @click="alternarCelula(i, j)"
+          :style="{ width: '30px', height: '30px', border: '1px solid black', textAlign: 'center', cursor: 'pointer', backgroundColor: celula === 1 ? '#ddd' : 'transparent' }">
+          {{ celula }}
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
