@@ -3,32 +3,308 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simulador de Placa de Petri</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 
 <body>
-  <div id="app">
-    <h2>Simulador (Modo Texto)</h2>
+  <div class="crt-scanlines"></div>
 
-    <div style="margin-bottom: 20px;">
-      <label>Tamanho: <input type="number" v-model.number="tamanhoAtual" @change="reiniciarGrade" min="5"
-          max="50"></label>
-      <button @click="iniciar" :disabled="rodando">Iniciar</button>
-      <button @click="pausar" :disabled="!rodando">Pausar</button>
-      <button @click="avancarPasso" :disabled="rodando">Passo a Passo</button>
-      <button @click="reiniciarGrade">Reiniciar</button>
-    </div>
-
-    <p>Geração: <strong>{{ geracao }}</strong> | Células Vivas: <strong>{{ totalVivas }}</strong></p>
-    <div :style="{ display: 'grid', gridTemplateColumns: `repeat(${tamanhoAtual}, 30px)`, gap: '2px' }">
-      <template v-for="(linha, i) in matrizAtual" :key="'linha-'+i">
-        <div v-for="(celula, j) in linha" :key="'cel-'+i+'-'+j" @click="alternarCelula(i, j)"
-          :style="{ width: '30px', height: '30px', border: '1px solid black', textAlign: 'center', cursor: 'pointer', backgroundColor: celula === 1 ? '#ddd' : 'transparent' }">
-          {{ celula }}
+  <div id="app" class="console-shell" @mouseup="encerrarPintura" @mouseleave="encerrarPintura">
+    <header class="console-header">
+      <div class="brand-block">
+        <div class="hardware-tag">
+          <span class="led-dot" :class="{ active: rodando, warn: !rodando && modoEdicao }"></span>
+          <span class="mono-meta">UFSC // PROGRAMACAO WEB // TRABALHO 2</span>
         </div>
-      </template>
-    </div>
+        <h1 class="hero-title">SIMULADOR DE PLACA DE PETRI</h1>
+        <p class="cli-line">
+          <span class="cli-prompt">&gt;</span>
+          <span>{{ logSistema }}</span>
+          <span class="cli-cursor">_</span>
+        </p>
+      </div>
+
+      <div class="tape-deck-widget" :class="{ spinning: rodando }">
+        <div class="tape-window">
+          <svg class="tape-reel" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" stroke-width="3" />
+            <circle cx="32" cy="32" r="10" fill="none" stroke="currentColor" stroke-width="2.5" />
+            <line x1="32" y1="5" x2="32" y2="22" stroke="currentColor" stroke-width="3" />
+            <line x1="9" y1="45" x2="23" y2="37" stroke="currentColor" stroke-width="3" />
+            <line x1="55" y1="45" x2="41" y2="37" stroke="currentColor" stroke-width="3" />
+          </svg>
+          <div class="tape-bridge">
+            <span class="mono-meta">TAPE // BIO-LOG</span>
+            <div class="tape-strip"></div>
+            <span class="mono-meta">{{ rodando ? 'RODANDO' : (modoEdicao ? 'EDITANDO' : 'PAUSADO') }}</span>
+          </div>
+          <svg class="tape-reel" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" stroke-width="3" />
+            <circle cx="32" cy="32" r="10" fill="none" stroke="currentColor" stroke-width="2.5" />
+            <line x1="32" y1="5" x2="32" y2="22" stroke="currentColor" stroke-width="3" />
+            <line x1="9" y1="45" x2="23" y2="37" stroke="currentColor" stroke-width="3" />
+            <line x1="55" y1="45" x2="41" y2="37" stroke="currentColor" stroke-width="3" />
+          </svg>
+        </div>
+      </div>
+    </header>
+
+    <main class="console-grid">
+      <!-- Placa de Petri -->
+      <section class="crt-monitor-card">
+        <div class="card-header-strip">
+          <div class="strip-left">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18M9 21V9" />
+            </svg>
+            <h2>PLACA DE PETRI // GRADE {{ tamanhoAtual }}x{{ tamanhoAtual }}</h2>
+          </div>
+          <div class="strip-right mono-meta">
+            <span v-if="celulaFocada.linha !== null">
+              POS [L:{{ celulaFocada.linha }} C:{{ celulaFocada.coluna }}]
+            </span>
+            <span v-else>POS [L:-- C:--]</span>
+          </div>
+        </div>
+
+        <div class="crt-bezel" @mouseleave="limparFocoCelula">
+          <div class="vhs-tracking-bar"></div>
+
+          <div
+            class="petri-grid"
+            :class="{ editable: modoEdicao && !rodando }"
+            :style="{
+              gridTemplateColumns: `repeat(${tamanhoAtual}, ${tamanhoCelulaPx}px)`,
+              gridTemplateRows: `repeat(${tamanhoAtual}, ${tamanhoCelulaPx}px)`
+            }"
+          >
+            <template v-for="(linha, i) in matrizAtual" :key="'linha-' + i">
+              <div
+                v-for="(celula, j) in linha"
+                :key="'cel-' + i + '-' + j"
+                class="petri-cell"
+                :class="{ viva: celula === 1, morta: celula === 2 }"
+                @mousedown.prevent="iniciarPintura(i, j)"
+                @mouseenter="pintarAoArrastar(i, j)"
+              ></div>
+            </template>
+          </div>
+        </div>
+
+        <div class="crt-footer">
+          <div class="legend-group">
+            <div class="legend-item">
+              <span class="swatch swatch-alive"></span>
+              <span>Célula Viva</span>
+            </div>
+            <div class="legend-item">
+              <span class="swatch swatch-died"></span>
+              <span>Célula Morta ({{ totalMortas }})</span>
+            </div>
+            <div class="legend-item">
+              <span class="swatch swatch-dead"></span>
+              <span>Espaço Vazio</span>
+            </div>
+          </div>
+
+          <div class="mode-readout mono-meta">
+            <span v-if="modoEdicao && !rodando" class="text-green">
+              [CLIQUE NAS CELULAS PARA EDITAR]
+            </span>
+            <span v-else-if="rodando" class="text-amber">
+              [SIMULACAO EM EXECUCAO]
+            </span>
+            <span v-else class="text-muted">
+              [PAUSADO]
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Controles e Informações -->
+      <aside class="control-deck-column">
+        <section class="deck-module telemetry-module">
+          <div class="module-title-row">
+            <h2>STATUS DA SIMULACAO</h2>
+            <span class="mono-meta">CONTADORES</span>
+          </div>
+
+          <div class="telemetry-asymmetric-grid">
+            <div class="readout-box readout-generation">
+              <span class="ui-label">GERACAO ATUAL</span>
+              <div class="digital-number amber-glow">{{ geracao }}</div>
+              <span class="mono-meta">EVOLUCOES</span>
+            </div>
+
+            <div class="readout-box readout-alive">
+              <span class="ui-label">CELULAS VIVAS</span>
+              <div class="digital-number green-glow">{{ totalVivas }}</div>
+              <span class="mono-meta">DE {{ totalCelulas }} ({{ densidadePercentual }}%)</span>
+            </div>
+          </div>
+
+          <div class="analog-meter">
+            <div class="meter-header">
+              <span class="ui-label">OCUPACAO DA PLACA</span>
+              <span class="mono-meta">{{ densidadePercentual }}%</span>
+            </div>
+            <div class="meter-segments">
+              <span
+                v-for="seg in 20"
+                :key="'seg-' + seg"
+                class="meter-bar"
+                :class="{
+                  lit: densidadePercentual >= seg * 5,
+                  warn: seg > 13 && seg <= 17,
+                  peak: seg > 17
+                }"
+              ></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="deck-module transport-module">
+          <div class="module-title-row">
+            <h2>COMANDOS</h2>
+            <span class="mono-meta">CONTROLE</span>
+          </div>
+
+          <div class="transport-grid">
+            <button class="btn-cassette btn-primary-crt" @click="iniciar" :disabled="rodando">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="6 4 20 12 6 20 6 4" />
+              </svg>
+              <span>{{ geracao > 0 ? 'CONTINUAR' : 'INICIAR' }}</span>
+            </button>
+
+            <button class="btn-cassette btn-amber" @click="pausar" :disabled="!rodando">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+              <span>PAUSAR</span>
+            </button>
+
+            <button class="btn-cassette btn-ghost-beige" @click="avancarPasso" :disabled="rodando">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polygon points="5 4 15 12 5 20 5 4" fill="currentColor" />
+                <line x1="19" y1="5" x2="19" y2="19" />
+              </svg>
+              <span>PASSO A PASSO</span>
+            </button>
+
+            <button
+              class="btn-cassette btn-edit-toggle"
+              :class="{ active: modoEdicao && !rodando }"
+              @click="alternarModoEdicao"
+            >
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+              <span>{{ modoEdicao && !rodando ? 'EDICAO ATIVA' : 'EDITAR GERACAO' }}</span>
+            </button>
+
+            <button class="btn-cassette btn-danger-tape span-full" @click="reiniciarGrade">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span>REINICIAR</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="deck-module calibration-module">
+          <div class="module-title-row">
+            <h2>CONFIGURACAO DA MATRIZ</h2>
+            <span class="mono-meta">PARAMETROS</span>
+          </div>
+
+          <div class="form-stack">
+            <div class="field-group">
+              <label for="input-tamanho" class="ui-label">
+                TAMANHO DA MATRIZ (5 A 50)
+              </label>
+              <div class="size-control-row">
+                <input
+                  id="input-tamanho"
+                  class="cassette-input mono-input"
+                  type="number"
+                  v-model.number="tamanhoAtual"
+                  min="5"
+                  max="50"
+                >
+                <input
+                  class="cassette-slider"
+                  type="range"
+                  v-model.number="tamanhoAtual"
+                  min="5"
+                  max="50"
+                >
+                <span class="mono-badge">{{ tamanhoAtual }}x{{ tamanhoAtual }}</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label for="range-velocidade" class="ui-label">
+                VELOCIDADE ({{ velocidadeMs }} MS)
+              </label>
+              <div class="size-control-row">
+                <input
+                  id="range-velocidade"
+                  class="cassette-slider"
+                  type="range"
+                  v-model.number="velocidadeMs"
+                  min="80"
+                  max="1000"
+                  step="20"
+                >
+                <span class="mono-badge">{{ velocidadeMs }}ms</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label for="select-padrao" class="ui-label">
+                EXEMPLOS PRONTOS
+              </label>
+              <select
+                id="select-padrao"
+                class="cassette-select"
+                v-model="padraoSelecionado"
+                @change="aplicarPadrao"
+              >
+                <option value="">-- Selecionar padrão --</option>
+                <option value="pdf">Padrão do PDF</option>
+                <option value="glider">Planador (Glider)</option>
+                <option value="blinker">Oscilador (Blinker)</option>
+                <option value="aleatorio">Aleatório</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="deck-module rules-module">
+          <div class="module-title-row">
+            <h2>REGRAS DO JOGO</h2>
+            <span class="mono-meta">8 VIZINHAS</span>
+          </div>
+          <ul class="rules-list">
+            <li><strong>Sobrevivência:</strong> 2 ou 3 vizinhas vivas continua viva.</li>
+            <li><strong>Isolamento:</strong> menos de 2 vizinhas vivas morre.</li>
+            <li><strong>Superpopulação:</strong> mais de 3 vizinhas vivas morre.</li>
+            <li><strong>Nascimento:</strong> morta com 3 vizinhas vivas nasce.</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
   </div>
 
   <script src="app.js"></script>
