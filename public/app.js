@@ -20,7 +20,7 @@ createApp({
     const construirMatriz = (tamanho) => {
       const novaMatriz = [];
       for (let i = 0; i < tamanho; i++) {
-        novaMatriz.push(new Array(tamanho).fill(0));
+        novaMatriz.push(new Array(tamanho).fill(0)); // Matriz é um array de arrays unidimensional
       }
       return novaMatriz;
     };
