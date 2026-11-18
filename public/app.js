@@ -205,13 +205,13 @@ createApp({
             if (vizinhosAtuais === 2 || vizinhosAtuais === 3) {
               matrizBuffer[i][j] = 1; // Sobrevive
             } else {
-              matrizBuffer[i][j] = 2; // Morre por isolamento ou superpopulação (fica marcada como morta)
+              matrizBuffer[i][j] = 2; // Morre por isolamento ou superpopulação (fica morta)
             }
           } else {
             if (vizinhosAtuais === 3) {
               matrizBuffer[i][j] = 1; // Nascimento
             } else {
-              matrizBuffer[i][j] = estadoAtual; // Continua como estava (0 ou 2)
+              matrizBuffer[i][j] = estadoAtual; // Continua como estava (morta)
             }
           }
 
